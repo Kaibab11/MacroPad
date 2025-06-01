@@ -35,20 +35,18 @@ class Kpad(KMKKeyboard):
 
     def set_oled(self, Kpad_oled):
         if Kpad_oled:
-            from display.display import Display, BitmapLogoScene, StatusScene
-            # Import the new Showcase class
-            from display.display import ShowcaseScene  # Make sure to add this to your display.py file
+            from display.display import Display, BitmapLogoScene, ShowcaseScene, StatusScene, SelectionScene
             
-            # Add all three scenes
             scenes = [
-                BitmapLogoScene("/display/bmp/kpad_v1_0_kPad.bmp"),
+                BitmapLogoScene("/display/bmp/kpad_draf227_tc3.bmp"),
                 ShowcaseScene(),
-                StatusScene(
-                    layers_names=self.layer_names, 
-                    separate_default_layer=False,
-                ),
-                
+                #StatusScene(
+                #    layers_names=self.layer_names, 
+                #    separate_default_layer=False,
+                #),
+                SelectionScene(layers_names=self.layer_names)
             ]
+
             for scene in scenes:
                 scene.keyboard = self
             # Initialize display with all scenes
