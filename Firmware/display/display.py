@@ -1,6 +1,5 @@
 """
 This file is adapted from Tonasz's display.py in https://github.com/Tonasz/kmk_firmware/blob/display/kmk/extensions/display.py 
-Modification is noted in the subclass below.
 
 Thanks to Tonasz for their contribution.
 """
@@ -8,6 +7,7 @@ from supervisor import ticks_ms
 
 import adafruit_displayio_ssd1306
 import displayio
+import i2cdisplaybus
 import terminalio   
 from adafruit_display_text import label
 
@@ -23,7 +23,7 @@ class Display(Extension):
         self, i2c, scenes, *, width=128, height=64, rotation=0, address=I2C_ADDRESS
     ):
 
-        display_bus = displayio.I2CDisplay(i2c, device_address=address)
+        display_bus = i2cdisplaybus.I2CDisplayBus(i2c, device_address=address)
         self.width = width
         self.height = height
         self._display = adafruit_displayio_ssd1306.SSD1306(
@@ -169,6 +169,8 @@ class Display(Extension):
 class DisplayScene:
     '''Abstract class, which all other scenes depends on'''
 
+    _display_layer = 0
+    _current_layer = 0
     polling_interval = 40
 
     def is_redraw_needed(self, sandbox):
@@ -213,18 +215,17 @@ class BitmapLogoScene(DisplayScene):
 from kmk.extensions.rgb import AnimationModes
 
 class StatusScene(DisplayScene):
-    '''Displays basic status info: current layer, default layer, rgb mode (optional) with larger font'''
+    '''Displays basic status info: current layer, default layer, rgb mode (optional)'''
 
     last_layer = 0
     last_rgb_mode = 0
 
     def __init__(
-        self, *, layers_names=None, separate_default_layer=False, rgb_ext=None, font_path=None
+        self, *, layers_names=None, separate_default_layer=False, rgb_ext=None
     ):
         self.layers_names = layers_names
         self.separate_default_layer = separate_default_layer
         self.rgb_ext = rgb_ext
-        self.font_path = font_path
 
     def is_redraw_needed(self, sandbox):
         if self.last_layer != sandbox.active_layers[0]:
@@ -236,54 +237,21 @@ class StatusScene(DisplayScene):
         return False
 
     def initialize(self, oled, sandbox):
-        import terminalio
-        from adafruit_display_text import label
-        import displayio
-        
-        # Try to load custom font if provided
-        if self.font_path:
-            try:
-                from adafruit_bitmap_font import bitmap_font
-                self.font = bitmap_font.load_font(self.font_path)
-            except Exception:
-                # Fall back to built-in font if loading fails
-                self.font = terminalio.FONT
-        else:
-            self.font = terminalio.FONT
-            
-        # Adjust spacing for larger font
-        scene_height = 30 if self.rgb_ext is None else 45
-        y_pos = max(1, int((oled.height - scene_height) / 2))
-        
-        self.scene_group = displayio.Group(x=2, y=y_pos)
-        
-        # Use scale parameter to make font larger without needing a custom font file
+        scene_height = 20 if self.rgb_ext is None else 30
+        y_pos = int((oled.height - scene_height) / 2)
+        self.scene_group = displayio.Group(x=5, y=y_pos)
         self.upper_layout_text = label.Label(
-            terminalio.FONT, 
-            text=" " * 20, 
-            color=0xFFFFFF,
-            scale=1  # Normal size for upper text
+            terminalio.FONT, text=" " * 40, color=0xFFFFFF, scale=2
         )
         self.scene_group.append(self.upper_layout_text)
-        
         self.lower_layout_text = label.Label(
-            terminalio.FONT, 
-            text=" " * 20, 
-            color=0xFFFFFF,
-            scale=2  # Double size for layer name
+            terminalio.FONT, text=" " * 40, color=0xFFFFFF, scale=2
         )
-        self.lower_layout_text.y = 12  # Adjusted for 32px height display
+        self.lower_layout_text.y = 10
         self.scene_group.append(self.lower_layout_text)
-        
-        if self.rgb_ext is not None:
-            self.rgb_text = label.Label(
-                terminalio.FONT, 
-                text=" " * 20, 
-                color=0xFFFFFF,
-                scale=1  # Normal size for RGB text
-            )
-            self.rgb_text.y = 28  # Adjusted for 32px height display
-            self.scene_group.append(self.rgb_text)
+        self.rgb_text = label.Label(terminalio.FONT, text=" " * 40, color=0xFFFFFF)
+        self.rgb_text.y = 20
+        self.scene_group.append(self.rgb_text)
 
     def forced_draw(self, oled, sandbox):
         self.draw(oled, sandbox)
@@ -311,10 +279,8 @@ class StatusScene(DisplayScene):
         return self.layers_names[layer_no]
 
     def _get_rgb_mode_name(self, rgb_mode):
-        from kmk.extensions.rgb import AnimationModes
-
         if rgb_mode == AnimationModes.OFF:
-            return 'Off'
+            return 'Off mode'
         if (
             rgb_mode == AnimationModes.STATIC
             or rgb_mode == AnimationModes.STATIC_STANDBY
@@ -325,7 +291,7 @@ class StatusScene(DisplayScene):
         elif rgb_mode == AnimationModes.RAINBOW:
             return 'Rainbow'
         elif rgb_mode == AnimationModes.BREATHING_RAINBOW:
-            return 'Brth.Rnbw'
+            return 'Breath. rainbow'
         elif rgb_mode == AnimationModes.KNIGHT:
             return 'Knight'
         elif rgb_mode == AnimationModes.SWIRL:
@@ -334,6 +300,7 @@ class StatusScene(DisplayScene):
             return 'User'
         else:
             return 'other'
+        
 
 
 
@@ -353,10 +320,6 @@ class ShowcaseScene(DisplayScene):
         return False
 
     def initialize(self, oled, sandbox):
-        from adafruit_display_text import label
-        import displayio
-        import terminalio
-
         self.scene_group = displayio.Group()
 
         # Key display text
