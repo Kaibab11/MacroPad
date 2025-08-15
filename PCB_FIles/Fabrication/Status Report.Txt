@@ -1,0 +1,10 @@
+Output: Report Board Stack
+Type  : Report Board Stack
+From  : PCB Document [PCB_Kpad.PcbDoc]
+   Generated File[Report Board Stack.xls]
+
+
+Files Generated   : 1
+Documents Printed : 0
+
+Finished Output Generation At 11:18:20 AM On 8/15/2025
